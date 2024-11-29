@@ -4,7 +4,7 @@
       <div class="q-mb-xl">
         <q-input v-model="tempData.name" label="姓名" />
         <q-input v-model="tempData.age" label="年齡" />
-        <q-btn color="primary" class="q-mt-md">新增</q-btn>
+        <q-btn color="primary" class="q-mt-md" @click="addData">新增</q-btn>
       </div>
 
       <q-table
@@ -35,7 +35,16 @@
               :props="props"
               style="min-width: 120px"
             >
-              <div>{{ col.value }}</div>
+              <div v-if="editingIndex !== props.row.id">
+                {{ col.value }}
+              </div>
+              <q-input
+                v-if="editingIndex == props.row.id"
+                filled
+                :model-value="col.value"
+                @update:model-value="(value) => emit('update:text', value)"
+                label="Filled"
+              />
             </q-td>
             <q-td class="text-right" auto-width v-if="tableButtons.length > 0">
               <q-btn
@@ -80,18 +89,24 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { QTableProps } from 'quasar';
-import { ref } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 interface btnType {
   label: string;
   icon: string;
   status: string;
+}
+
+interface blockDataType {
+  name: string;
+  age: number;
+  id: string;
 }
 const blockData = ref([
   {
     name: 'test',
     age: 25,
   },
-]);
+] as blockDataType[]);
 const tableConfig = ref([
   {
     label: '姓名',
@@ -123,9 +138,100 @@ const tempData = ref({
   name: '',
   age: '',
 });
-function handleClickOption(btn, data) {
-  // ...
+
+const editingIndex = ref('aaa');
+
+const deleteIndex = ref('bbb');
+
+const countEditBtnClicks = ref(0);
+
+async function handleClickOption(btn, data) {
+  console.log(btn);
+  if (btn.status == 'edit') {
+    countEditBtnClicks.value++;
+    console.log(countEditBtnClicks.value);
+    editingIndex.value = data.id;
+
+    if (countEditBtnClicks.value % 2 == 0) {
+      await editData();
+    }
+  } else {
+    deleteIndex.value = data.id;
+    await deleteData();
+  }
 }
+
+async function deleteData() {
+  try {
+    const response = await axios.delete(
+      `https://dahua.metcfire.com.tw/api/CRUDTest/${deleteIndex.value}`
+    );
+    if (response.status === 200) {
+      await getData();
+    }
+    return response.data;
+  } catch (error) {
+    return error;
+  }
+}
+const addData = async () => {
+  try {
+    const response = await axios.post(
+      'https://dahua.metcfire.com.tw/api/CRUDTest',
+      tempData.value
+    );
+    if (response.status === 200) {
+      await getData();
+    }
+    return response.data;
+  } catch (error) {
+    return error;
+  }
+};
+
+const getData = async () => {
+  try {
+    const response = await axios.get(
+      'https://dahua.metcfire.com.tw/api/CRUDTest/a'
+    );
+    console.log(response.data);
+
+    blockData.value = response.data;
+  } catch (error) {
+    return error;
+  }
+};
+
+const editData = async () => {
+  console.log(blockData.value);
+  const editObject = blockData.value.filter(
+    (item) => item.id == editingIndex.value
+  )[0];
+  try {
+    const response = await axios.patch(
+      'https://dahua.metcfire.com.tw/api/CRUDTest',
+      editObject
+    );
+    if (response.status === 200) {
+      editingIndex.value = 'aaa';
+      await getData();
+    }
+    return response.data;
+  } catch (error) {
+    return error;
+  }
+};
+
+onMounted(async () => {
+  await getData();
+});
+
+const emit = defineEmits(['update:text']);
+
+watch(blockData, (newVal) => {
+  // 當值變化時，發出 input 事件
+  emit('update:text', newVal);
+});
 </script>
 
 <style lang="scss" scoped>
